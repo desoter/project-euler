@@ -1,5 +1,6 @@
 package problems
 
+import kotlinx.coroutines.*
 import java.util.*
 
 /**
@@ -22,7 +23,15 @@ import java.util.*
  */
 fun main() {
 
-    val result=firstTriangleNumberWithNDivisors(501)
+    val nParallel =
+        if (Runtime.getRuntime().availableProcessors()<=1) 1
+        else Runtime.getRuntime().availableProcessors()/2
+
+    println("${Date()} - Start with $nParallel parallel processes")
+
+    val result= runBlocking(Dispatchers.Default) {
+        firstTriangleNumberWithNDivisorsCoroutines(this, nParallel, 501)
+    }
 
     println("${Date()} - Result: $result")
 }
@@ -64,4 +73,71 @@ fun firstTriangleNumberWithNDivisors(targetNumberOfDivisors: Int) : Int {
     }
 
     return 0
+}
+
+suspend fun firstTriangleNumberWithNDivisorsCoroutines(
+    coroutineScope: CoroutineScope,
+    nParallel: Int,
+    targetNumberOfDivisors: Int
+) : Int {
+
+    var triangleNumber = 1 // First triangle number
+    val triangleNumbers = Array(nParallel) { 0 }
+
+    val nDivisorsToBe = Array(nParallel) { coroutineScope.async { 0 } }
+
+    var maxNDivisors=0
+
+    var nDivisors: Int
+
+    for (n in 2..1_000_000 step nParallel) { // The max of the range is arbitrary
+
+        for (c in 0 until nParallel) {
+
+            triangleNumber += (n+c)
+
+            triangleNumbers[c] = triangleNumber
+
+            nDivisorsToBe[c] = calculateNumberOfDivisorsAsync(coroutineScope, triangleNumbers[c])
+
+        }
+
+        nDivisorsToBe.forEachIndexed { c, it ->
+
+            nDivisors = it.await()
+
+            if (nDivisors > maxNDivisors) {
+                println("${Date()} - Triangle number: ${triangleNumbers[c]}; # of divisors: $nDivisors")
+
+                maxNDivisors = nDivisors
+
+                if (maxNDivisors >= targetNumberOfDivisors) return triangleNumbers[c]
+            }
+        }
+
+    }
+
+    return 0
+}
+
+fun calculateNumberOfDivisorsAsync(coroutineScope: CoroutineScope, number: Int) : Deferred<Int> {
+
+    return coroutineScope.async {
+
+        var nDivisors=1 // Itself
+
+        val divisorStep =
+            if (number.mod(2) != 0) 2 // Odd numbers cannot have even divisors(?)
+            else 1
+
+        for (divisor in 1..(number/2) step divisorStep) {
+
+            if (number.mod(divisor) == 0) {
+                nDivisors++
+
+            }
+        }
+
+        nDivisors
+    }
 }
