@@ -120,24 +120,22 @@ suspend fun firstTriangleNumberWithNDivisorsCoroutines(
     return 0
 }
 
-fun calculateNumberOfDivisorsAsync(coroutineScope: CoroutineScope, number: Int) : Deferred<Int> {
+fun calculateNumberOfDivisorsAsync(coroutineScope: CoroutineScope, number: Int) :
+        Deferred<Int> = coroutineScope.async {
 
-    return coroutineScope.async {
+    var nDivisors=1 // Itself
 
-        var nDivisors=1 // Itself
+    val divisorStep =
+        if (number.mod(2) != 0) 2 // Odd numbers cannot have even divisors(?)
+        else 1
 
-        val divisorStep =
-            if (number.mod(2) != 0) 2 // Odd numbers cannot have even divisors(?)
-            else 1
+    for (divisor in 1..(number/2) step divisorStep) {
 
-        for (divisor in 1..(number/2) step divisorStep) {
+        if (number.mod(divisor) == 0) {
+            nDivisors++
 
-            if (number.mod(divisor) == 0) {
-                nDivisors++
-
-            }
         }
-
-        nDivisors
     }
+
+    nDivisors
 }

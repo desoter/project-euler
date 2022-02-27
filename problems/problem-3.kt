@@ -1,5 +1,7 @@
 package problems
 
+import kotlinx.coroutines.*
+import java.util.*
 import kotlin.math.floor
 import kotlin.math.sqrt
 
@@ -10,17 +12,48 @@ import kotlin.math.sqrt
  */
 fun main() {
 
-    val largestPrimeFactor = maxPrimeFactor(600851475143)
+    val nParallel =
+        if (Runtime.getRuntime().availableProcessors()<=1) 1
+        else Runtime.getRuntime().availableProcessors()/2
 
-    println("Largest prime factor: $largestPrimeFactor")
+    println("${Date()} - Start with $nParallel parallel processes")
+
+    val result = runBlocking(Dispatchers.Default) {
+        maxPrimeFactor(this, nParallel, 600851475143)
+    }
+
+    println("${Date()} - Result: $result")
 }
 
-fun maxPrimeFactor(n: Long) : Long {
+suspend fun maxPrimeFactor(
+    coroutineScope: CoroutineScope,
+    nParallel: Int,
+    n: Long
+) : Long {
 
-    for (i in (n/2) downTo 1) {
+    val possiblePrimeFactors = Array(nParallel) { 0L }
 
-        if (n.mod(i) == 0L && isPrime(i)) return i
+    val isPrimeFactorToBe = Array(nParallel) { coroutineScope.async { false } }
 
+    var isPrimeFactor: Boolean
+
+    for (i in (n/2) downTo 1 step nParallel.toLong()) {
+
+        for (c in 0 until nParallel) {
+
+            possiblePrimeFactors[c] = i-c
+
+            isPrimeFactorToBe[c] = isPrimeFactorAsync(coroutineScope, n, possiblePrimeFactors[c])
+
+        }
+
+        isPrimeFactorToBe.forEachIndexed { c, it ->
+
+            isPrimeFactor = it.await()
+
+            if (isPrimeFactor) return possiblePrimeFactors[c]
+
+        }
     }
 
     return 1
@@ -46,4 +79,32 @@ fun isPrime(n: Long) : Boolean {
             return true
         }
     }
+}
+
+fun isPrimeFactorAsync(coroutineScope: CoroutineScope, number: Long, possiblePrimeFactor: Long) :
+        Deferred<Boolean> = coroutineScope.async {
+
+    when {
+        possiblePrimeFactor <= 1 -> return@async false
+        possiblePrimeFactor == 2L -> return@async true
+        possiblePrimeFactor == 3L -> return@async true
+        possiblePrimeFactor.mod(2) == 0 -> return@async false
+        possiblePrimeFactor.mod(3) == 0 -> return@async false
+        else -> {
+
+            if (number.mod(possiblePrimeFactor) == 0L) {
+
+                for (i in 5L..(floor(sqrt(possiblePrimeFactor.toDouble())).toLong()) step 6L) {
+
+                    if (possiblePrimeFactor.mod(i) == 0L) return@async false
+                    else if (possiblePrimeFactor.mod(i + 2) == 0L) return@async false
+
+                }
+
+            } else return@async false
+
+            return@async true
+        }
+    }
+
 }
