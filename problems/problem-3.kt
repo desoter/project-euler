@@ -31,32 +31,15 @@ suspend fun maxPrimeFactor(
     n: Long
 ) : Long {
 
-    val possiblePrimeFactors = Array(nParallel) { 0L }
+    val jobs = arrayListOf<Job>()
 
-    val isPrimeFactorToBe = Array(nParallel) { coroutineScope.async { false } }
-
-    var isPrimeFactor: Boolean
-
-    for (i in (n/2) downTo 1 step nParallel.toLong()) {
-
-        for (c in 0 until nParallel) {
-
-            possiblePrimeFactors[c] = i-c
-
-            isPrimeFactorToBe[c] = isPrimeFactorAsync(coroutineScope, n, possiblePrimeFactors[c])
-
-        }
-
-        isPrimeFactorToBe.forEachIndexed { c, it ->
-
-            isPrimeFactor = it.await()
-
-            if (isPrimeFactor) return possiblePrimeFactors[c]
-
-        }
+    for (c in 0 until nParallel) {
+        jobs.add(maxPrimeDivisorCustomAsync(coroutineScope, n, nParallel, c))
     }
 
-    return 1
+    jobs.joinAll()
+
+    return 0
 }
 
 fun isPrime(n: Long) : Boolean {
@@ -81,30 +64,30 @@ fun isPrime(n: Long) : Boolean {
     }
 }
 
-fun isPrimeFactorAsync(coroutineScope: CoroutineScope, number: Long, possiblePrimeFactor: Long) :
-        Deferred<Boolean> = coroutineScope.async {
+fun maxPrimeDivisorCustomAsync(coroutineScope: CoroutineScope,
+                               number: Long,
+                               numbersStep: Int,
+                               parallelId: Int) =
+    coroutineScope.launch {
 
-    when {
-        possiblePrimeFactor <= 1 -> return@async false
-        possiblePrimeFactor == 2L -> return@async true
-        possiblePrimeFactor == 3L -> return@async true
-        possiblePrimeFactor.mod(2) == 0 -> return@async false
-        possiblePrimeFactor.mod(3) == 0 -> return@async false
-        else -> {
+        var n=(number/2)-parallelId
+        while (n > 0) {
 
-            if (number.mod(possiblePrimeFactor) == 0L) {
+            if (number.mod(n) == 0L) {
 
-                for (i in 5L..(floor(sqrt(possiblePrimeFactor.toDouble())).toLong()) step 6L) {
+                var isPrime=true
+                for (i in 5L..(floor(sqrt(n.toDouble())).toLong()) step 6L) {
 
-                    if (possiblePrimeFactor.mod(i) == 0L) return@async false
-                    else if (possiblePrimeFactor.mod(i + 2) == 0L) return@async false
-
+                    if (n.mod(i) == 0L) isPrime=false
+                    else if (n.mod(i + 2) == 0L) isPrime=false
                 }
 
-            } else return@async false
+                if (isPrime) {
+                    println("${Date()} - maxPrime divisor found by process #$parallelId: $n")
+                    return@launch
+                }
+            }
 
-            return@async true
+            n -= numbersStep
         }
-    }
-
 }
