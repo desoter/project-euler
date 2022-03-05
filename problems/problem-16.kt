@@ -1,8 +1,6 @@
 package problems
 
-import java.lang.Exception
 import java.util.*
-import kotlin.math.pow
 
 /**
  * 2^15 = 32768 and the sum of its digits is 3 + 2 + 7 + 6 + 8 = 26.
@@ -19,6 +17,10 @@ fun main() {
     val sumOfDigits = result.sumOf { it.digitToInt().toLong() }
 
     println("${Date()} - Result: $result; sumOfDigits: $sumOfDigits")
+
+    // Less fun way; probably at the time the problem was conceived this option didn't exist
+    //val result2 = BigDecimal(2).pow(1000).toString().sumOf { it.digitToInt().toLong() }
+    //println("${Date()} - Result: $result2")
 }
 
 fun calculatePowerOfTwo(exp: Int) : String {
